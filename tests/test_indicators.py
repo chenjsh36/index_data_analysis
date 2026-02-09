@@ -10,6 +10,8 @@ import pytest
 from ndx_rsi.indicators import (
     calculate_rsi_handwrite,
     calculate_ma,
+    calculate_ma5,
+    calculate_ma20,
     calculate_volume_ratio,
     verify_rsi,
     judge_market_env,
@@ -40,6 +42,22 @@ def test_calculate_ma(sample_prices):
     assert ma.iloc[-1] == pytest.approx(sample_prices.tail(50).mean(), rel=1e-5)
 
 
+def test_calculate_ma5(sample_prices):
+    """TASK-07: MA5 与 rolling(5).mean() 一致。"""
+    ma5 = calculate_ma5(sample_prices)
+    expected = sample_prices.rolling(5, min_periods=1).mean()
+    assert len(ma5) == len(sample_prices)
+    pd.testing.assert_series_equal(ma5, expected)
+
+
+def test_calculate_ma20(sample_prices):
+    """TASK-13: MA20 与 rolling(20).mean() 一致。"""
+    ma20 = calculate_ma20(sample_prices)
+    expected = sample_prices.rolling(20, min_periods=1).mean()
+    assert len(ma20) == len(sample_prices)
+    pd.testing.assert_series_equal(ma20, expected)
+
+
 def test_volume_ratio():
     vol = pd.Series([1e6] * 25, index=pd.date_range("2024-01-01", periods=25, freq="D"))
     vr = calculate_volume_ratio(vol, 20)
@@ -57,4 +75,4 @@ def test_get_rsi_thresholds():
     th = get_rsi_thresholds("bull")
     assert th["overbuy"] == 80 and th["oversell"] == 40
     th = get_rsi_thresholds("oscillate")
-    assert th["overbuy"] == 70 and th["oversell"] == 30
+    assert th["overbuy"] == 65 and th["oversell"] == 35

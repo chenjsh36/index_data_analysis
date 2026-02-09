@@ -27,9 +27,11 @@ pip install -r requirements.txt
 ## 配置
 
 - `config/datasource.yaml`：数据源与标的（NDX/QQQ/TQQQ）
-- `config/strategy.yaml`：策略参数（RSI 周期、阈值、风控）
+- `config/strategy.yaml`：策略参数（RSI 周期、阈值、风控）、**v2 回测配置**（`backtest` 段：止损止盈开关、趋势破位、回撤熔断、无风险利率）、**v2 背离开关**（`use_divergence`）
 
 可通过环境变量 `NDX_RSI_CONFIG` 指定 config 目录路径。
+
+**v2 回测**：回测时默认启用 Bar 内止损/止盈，绩效指标为标准口径（profit_factor = 总盈利/总亏损，夏普 = (年化收益 - 无风险)/收益标准差）。在 `strategy.yaml` 的 `backtest` 下可关闭 `use_stop_loss_take_profit` 以对比「仅信号平仓」结果。
 
 ## CLI 用法
 
@@ -59,8 +61,8 @@ pytest tests/ --cov=ndx_rsi --cov-report=term-missing  # 覆盖率
 
 ## 文档
 
-- 需求与设计见 `docs/v1/`：01-requirements_gathering 至 05-development-task-breakdown
-- 技术方案见 `docs/v1/04-technical-design.md`
+- **v1**：`docs/v1/`（01-requirements_gathering 至 06-code-development、07-simplifications-and-backtest-impact）
+- **v2**：`docs/v2/`（01-requirements_gathering、04-technical-design、05-development-task-breakdown、06-code-development）；v2 在 v1 基础上增加回测止损止盈、连续 2 日市场环境、标准绩效指标、回撤熔断与可选背离
 
 ## 免责声明
 

@@ -96,7 +96,7 @@ def main() -> int:
 
     # fetch_data
     p1 = sub.add_parser("fetch_data", help="Fetch OHLCV and optionally save")
-    p1.add_argument("--symbol", default="QQQ")
+    p1.add_argument("--symbol", default="QQQ", help="标的代码，如 QQQ、TQQQ、^NDX，用于拉取行情")
     p1.add_argument("--start", default="2024-01-01")
     p1.add_argument("--end", default="2025-01-01")
     p1.add_argument("--frequency", default="1d")
@@ -106,7 +106,7 @@ def main() -> int:
     # run_backtest
     p2 = sub.add_parser("run_backtest", help="Run backtest and print metrics")
     p2.add_argument("--strategy", default="NDX_short_term")
-    p2.add_argument("--symbol", default="QQQ")
+    p2.add_argument("--symbol", default="QQQ", help="回测标的，如 QQQ、TQQQ")
     p2.add_argument("--start", default="2018-01-01")
     p2.add_argument("--end", default="2025-01-01")
     p2.set_defaults(func=cmd_run_backtest)
@@ -114,12 +114,12 @@ def main() -> int:
     # run_signal
     p3 = sub.add_parser("run_signal", help="Generate signal for latest data")
     p3.add_argument("--strategy", default="NDX_short_term")
-    p3.add_argument("--symbol", default="QQQ")
+    p3.add_argument("--symbol", default="QQQ", help="信号标的，如 QQQ、TQQQ")
     p3.set_defaults(func=cmd_run_signal)
 
     # verify_indicators
     p4 = sub.add_parser("verify_indicators", help="Verify RSI handwrite vs TA-Lib")
-    p4.add_argument("--symbol", default="QQQ")
+    p4.add_argument("--symbol", default="QQQ", help="验证 RSI 所用的行情标的")
     p4.add_argument("--start", default="2024-01-01")
     p4.add_argument("--end", default="2025-01-01")
     p4.set_defaults(func=cmd_verify_indicators)

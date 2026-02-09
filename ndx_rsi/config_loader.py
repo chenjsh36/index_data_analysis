@@ -53,3 +53,29 @@ def get_strategy_config(strategy_name: Optional[str] = None) -> Dict[str, Any]:
     if strategy_name is not None:
         return strategies.get(strategy_name, {})
     return strategies
+
+
+def get_backtest_config() -> Dict[str, Any]:
+    """
+    读取回测配置（v2）。从 config/strategy.yaml 的 backtest 段加载，缺失项用默认值。
+    返回结构见 docs/v2/04-technical-design.md §2.4。
+    """
+    path = _config_dir() / "strategy.yaml"
+    data = _load_yaml(path) if path.exists() else {}
+    raw = data.get("backtest", {})
+    cb = raw.get("circuit_breaker", {})
+    metrics = raw.get("metrics", {})
+    return {
+        "use_stop_loss_take_profit": raw.get("use_stop_loss_take_profit", True),
+        "use_ma50_exit": raw.get("use_ma50_exit", False),
+        "circuit_breaker": {
+            "enabled": cb.get("enabled", False),
+            "drawdown_threshold": cb.get("drawdown_threshold", 0.10),
+            "position_after": cb.get("position_after", 0.30),
+            "cooldown_bars": cb.get("cooldown_bars", 2),
+        },
+        "metrics": {
+            "risk_free_rate": metrics.get("risk_free_rate", 0.0),
+        },
+        "commission": raw.get("commission", 0.0005),
+    }

@@ -1,0 +1,20 @@
+# 数据源配置：按指数 code 分组，支持多数据源扩展
+indices:
+  NDX:
+    code: "^NDX"
+    ticker: ["QQQ", "TQQQ"]
+    data_source: "yfinance"
+    frequency: ["30m", "1d", "1w"]
+    fields: ["open", "high", "low", "close", "volume"]
+  QQQ:
+    code: "QQQ"
+    ticker: ["QQQ"]
+    data_source: "yfinance"
+    frequency: ["30m", "1d", "1w"]
+    fields: ["open", "high", "low", "close", "volume"]
+  TQQQ:
+    code: "TQQQ"
+    ticker: ["TQQQ"]
+    data_source: "yfinance"
+    frequency: ["30m", "1d", "1w"]
+    fields: ["open", "high", "low", "close", "volume"]

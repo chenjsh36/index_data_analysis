@@ -1,0 +1,35 @@
+# 策略配置：按策略名分组，RSI 参数与风控
+strategies:
+  NDX_short_term:
+    index_code: "NDX"
+    period_type: "short"
+    hold_days: [3, 10]
+    rsi_params:
+      short_period: 9
+      long_period: 24
+      thresholds:
+        bull:
+          overbuy: 80
+          strong_overbuy: 85
+          oversell: 40
+          strong_oversell: 35
+        bear:
+          overbuy: 60
+          strong_overbuy: 65
+          oversell: 20
+          strong_oversell: 15
+        oscillate:
+          overbuy: 70
+          strong_overbuy: 75
+          oversell: 30
+          strong_oversell: 25
+        transition:
+          overbuy: 70
+          strong_overbuy: 75
+          oversell: 30
+          strong_oversell: 25
+    risk_control:
+      max_position: 0.8
+      stop_loss_ratio: 0.03
+      take_profit_ratio: 0.07
+      is_leverage_etf: false

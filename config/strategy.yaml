@@ -6,7 +6,7 @@
 # ---------------------------------------------------------------------------
 backtest:
   # 是否在每根 K 线检查止损/止盈触达并平仓（true=启用，与实盘风控一致）
-  use_stop_loss_take_profit: false
+  use_stop_loss_take_profit: true
   # 是否启用趋势破位止损：收盘价跌破/站上 50 日均线时平仓
   use_ma50_exit: false
   # 回撤熔断：累计回撤超阈值时平仓并暂停开仓
@@ -30,6 +30,9 @@ strategies:
     hold_days: [3, 10]        # 建议持仓天数区间（日），供参考
     # v2：是否启用顶/底背离信号（true=启用，会参与信号组合）
     use_divergence: false
+    # 仅多不空 / 牛市禁空（用于回测对比，见 docs/v3/08-backtest-poor-performance-analysis.md）
+    long_only: true          # true=禁止开空，只做多
+    no_short_in_bull: false   # true=在 bull 环境下禁止开空，其他环境可空
     # RSI 与各市场环境下的超买超卖阈值（与 design.md 一致）
     rsi_params:
       short_period: 9         # RSI 短周期（日）
@@ -94,3 +97,26 @@ strategies:
     dynamic_cap:
       bull_overbought: 0.5    # 牛市 RSI > strong_overbuy 时 cap
       bear_oversell: 0.5      # 熊市 RSI < strong_oversell 时 cap
+
+  # -------------------------------------------------------------------------
+  # v4: EMA 策略（与 nasdaq_v1 逻辑一致）
+  # -------------------------------------------------------------------------
+  EMA_cross_v1:
+    index_code: "QQQ"
+    short_ema: 50
+    long_ema: 200
+    rebalance_freq: "daily"   # daily | monthly
+    stop_loss_ratio: 0.05
+    risk_control:
+      stop_loss_ratio: 0.05
+      take_profit_ratio: 0.20
+
+  EMA_trend_v2:
+    index_code: "QQQ"
+    ema_fast: 80
+    ema_slow: 200
+    vol_window: 20
+    vol_threshold: 0.02
+    risk_control:
+      stop_loss_ratio: 0.05
+      take_profit_ratio: 0.20

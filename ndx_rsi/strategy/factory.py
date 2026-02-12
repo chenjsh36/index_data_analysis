@@ -1,6 +1,7 @@
 """策略工厂：从 config/strategy.yaml 按名称创建策略实例。"""
 from ndx_rsi.config_loader import get_strategy_config
 from ndx_rsi.strategy.base import BaseTradingStrategy
+from ndx_rsi.strategy.ema_cross import EMACrossoverV1Strategy, EMATrendV2Strategy
 from ndx_rsi.strategy.ndx_short import NDXShortTermRSIStrategy
 
 
@@ -9,6 +10,10 @@ def create_strategy(strategy_name: str) -> BaseTradingStrategy:
     config = get_strategy_config(strategy_name)
     if not config:
         raise ValueError(f"Unknown strategy: {strategy_name}")
+    if strategy_name == "EMA_cross_v1":
+        return EMACrossoverV1Strategy(config)
+    if strategy_name == "EMA_trend_v2":
+        return EMATrendV2Strategy(config)
     if strategy_name == "NDX_short_term":
         return NDXShortTermRSIStrategy(config)
     # 预留：SPX_mid_term 等

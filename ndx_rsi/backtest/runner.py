@@ -16,10 +16,10 @@ run_backtest 受 config/strategy.yaml 影响：
 """
 import math
 import pandas as pd
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from ndx_rsi.data import YFinanceDataSource, preprocess_ohlcv
-from ndx_rsi.config_loader import get_datasource_config, get_backtest_config
+from ndx_rsi.config_loader import get_datasource_config, get_backtest_config, get_strategy_config
 from ndx_rsi.indicators import (
     calculate_rsi_handwrite,
     calculate_ma,
@@ -36,10 +36,12 @@ def run_backtest(
     start_date: str = "2018-01-01",
     end_date: str = "2025-01-01",
     commission: Optional[float] = None,
-) -> Dict[str, Any]:
+    return_series: bool = False,
+) -> Union[Dict[str, Any], Tuple[Dict[str, Any], pd.DataFrame]]:
     """
     执行回测，返回绩效 dict：win_rate, profit_factor, max_drawdown, total_return, sharpe_ratio 等。
     v2: profit_factor = 总盈利/总亏损，sharpe = (年化收益 - 无风险)/收益标准差；支持 Bar 内止损止盈与回撤熔断。
+    v4: return_series=True 时返回 (result_dict, series_df)，series_df 含 equity, strategy_cum_return, benchmark_cum_return, position。
     """
     bt_cfg = get_backtest_config()
     if commission is None:
@@ -62,14 +64,37 @@ def run_backtest(
         return {"error": "insufficient_data", "win_rate": 0, "max_drawdown": 0}
 
     df, _ = preprocess_ohlcv(raw)
-    df["ma50"] = calculate_ma(df["close"], 50)
-    df["ma5"] = calculate_ma5(df["close"])
-    df["ma20"] = calculate_ma20(df["close"])
-    df["rsi_9"] = calculate_rsi_handwrite(df["close"], 9)
-    df["rsi_24"] = calculate_rsi_handwrite(df["close"], 24)
-    df["volume_ratio"] = calculate_volume_ratio(df["volume"], 20)
-
     strategy = create_strategy(strategy_name)
+    loop_start = 50
+    if strategy_name == "EMA_cross_v1":
+        sc = get_strategy_config(strategy_name) or {}
+        short_ema = sc.get("short_ema", 50)
+        long_ema = sc.get("long_ema", 200)
+        df["ema_" + str(short_ema)] = df["close"].ewm(span=short_ema, adjust=False).mean()
+        df["ema_" + str(long_ema)] = df["close"].ewm(span=long_ema, adjust=False).mean()
+        loop_start = max(50, long_ema)
+        if len(df) < loop_start:
+            return {"error": "insufficient_data", "win_rate": 0, "max_drawdown": 0}
+    elif strategy_name == "EMA_trend_v2":
+        sc = get_strategy_config(strategy_name) or {}
+        ema_fast = sc.get("ema_fast", 80)
+        ema_slow = sc.get("ema_slow", 200)
+        vol_window = sc.get("vol_window", 20)
+        df["ema_" + str(ema_fast)] = df["close"].ewm(span=ema_fast, adjust=False).mean()
+        df["ema_" + str(ema_slow)] = df["close"].ewm(span=ema_slow, adjust=False).mean()
+        df["daily_return"] = df["close"].pct_change()
+        df["vol_" + str(vol_window)] = df["daily_return"].rolling(vol_window).std()
+        loop_start = max(50, ema_slow)
+        if len(df) < loop_start:
+            return {"error": "insufficient_data", "win_rate": 0, "max_drawdown": 0}
+    else:
+        df["ma50"] = calculate_ma(df["close"], 50)
+        df["ma5"] = calculate_ma5(df["close"])
+        df["ma20"] = calculate_ma20(df["close"])
+        df["rsi_9"] = calculate_rsi_handwrite(df["close"], 9)
+        df["rsi_24"] = calculate_rsi_handwrite(df["close"], 24)
+        df["volume_ratio"] = calculate_volume_ratio(df["volume"], 20)
+
     position = 0.0
     entries: list = []  # (date, price, side, size, stop_loss, take_profit) 开仓时保存 sl/tp
     equity = 1.0
@@ -81,8 +106,10 @@ def run_backtest(
     bar_returns: List[float] = []  # v2: 每 Bar 权益变化率，用于夏普
     circuit_breaker_cooldown = 0
     prev_equity = equity
+    series_rows: List[Dict[str, Any]] = []  # v4: 按日序列，return_series=True 时填充
+    close_start = float(df["close"].iloc[loop_start]) if loop_start < len(df) else 1.0
 
-    for i in range(50, len(df)):
+    for i in range(loop_start, len(df)):
         window = df.iloc[: i + 1]
         row = df.iloc[i]
         # TASK-11：传入当前持仓信息以支持平仓信号
@@ -96,7 +123,7 @@ def run_backtest(
         price = row["close"]
         high = row["high"]
         low = row["low"]
-        ma50 = row["ma50"]
+        ma50 = row["ma50"] if "ma50" in df.columns else None
         date = df.index[i]
         pos_new = sig.get("position", 0.0)
 
@@ -158,8 +185,8 @@ def run_backtest(
                 entries.clear()
                 closed_by_sl_tp = True
 
-        # ----- 若未因止损止盈平仓：可选趋势破位（v2） -----
-        if not closed_by_sl_tp and position != 0 and use_ma50_exit and entries:
+        # ----- 若未因止损止盈平仓：可选趋势破位（v2，仅当有 ma50 时） -----
+        if not closed_by_sl_tp and position != 0 and use_ma50_exit and entries and ma50 is not None:
             entry_price = entries[-1][1]
             side = 1 if position > 0 else -1
             exit_ma = False
@@ -219,6 +246,17 @@ def run_backtest(
             bar_returns.append(0.0)
         prev_equity = equity
 
+        # v4: 按日序列
+        if return_series:
+            bench_cum = float(df["close"].iloc[i]) / close_start
+            series_rows.append({
+                "date": date,
+                "equity": equity,
+                "strategy_cum_return": equity,
+                "benchmark_cum_return": bench_cum,
+                "position": position,
+            })
+
     total_trades = wins + losses
     win_rate = wins / total_trades if total_trades else 0
     total_return = equity - 1.0
@@ -237,7 +275,7 @@ def run_backtest(
     else:
         sharpe = 0.0
 
-    return {
+    result = {
         "win_rate": round(win_rate, 4),
         "total_trades": total_trades,
         "total_return": round(total_return, 4),
@@ -245,3 +283,7 @@ def run_backtest(
         "sharpe_ratio": round(sharpe, 4),
         "profit_factor": round(profit_factor, 4),
     }
+    if return_series and series_rows:
+        series_df = pd.DataFrame(series_rows).set_index("date")
+        return (result, series_df)
+    return result

@@ -68,11 +68,20 @@ class NDXShortTermRSIStrategy(BaseTradingStrategy):
         )
         pos = sig.get("position", 0.0)
         dynamic_cap = self.config.get("dynamic_cap") or {}
-        sig["position"] = apply_position_cap(
+        pos = apply_position_cap(
             pos, market_env,
             rsi_short=rsi_cur,
             dynamic_cap_config=dynamic_cap,
         )
+        # 仅多不空 / 牛市禁空：禁止开空时将负仓位置为 0（平仓信号 position=0 保持不变）
+        long_only = self.config.get("long_only", False)
+        no_short_in_bull = self.config.get("no_short_in_bull", False)
+        if pos < 0:
+            if long_only:
+                pos = 0.0
+            elif no_short_in_bull and market_env == "bull":
+                pos = 0.0
+        sig["position"] = pos
         return sig
 
     def calculate_risk(self, signal: Dict[str, Any], data: pd.DataFrame) -> Dict[str, Any]:

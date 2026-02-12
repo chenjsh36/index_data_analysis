@@ -41,11 +41,21 @@ pip install -r requirements.txt
 # 拉取数据
 python -m ndx_rsi.cli_main fetch_data --symbol QQQ --start 2024-01-01 --end 2026-02-09 -o data.csv
 
-# 回测
-python -m ndx_rsi.cli_main run_backtest --strategy NDX_short_term --symbol QQQ --start 2018-01-01 --end 2025-12-31
+# 回测（支持策略：NDX_short_term、EMA_cross_v1、EMA_trend_v2）
+python -m ndx_rsi.cli_main run_backtest --strategy NDX_short_term --symbol QQQ --start 2003-01-01 --end 2026-02-12
+python -m ndx_rsi.cli_main run_backtest --strategy EMA_cross_v1 --symbol QQQ --start 2003-01-01 --end 2025-12-31
+python -m ndx_rsi.cli_main run_backtest --strategy EMA_trend_v2 --symbol QQQ --start 2003-01-01 --end 2025-12-31
 
-# 生成当前信号
+# 回测并保存累计收益图
+python -m ndx_rsi.cli_main run_backtest --strategy EMA_trend_v2 --symbol QQQ --start 2003-01-01 --end 2025-12-31 --save-plot output/ema_v1.png
+# 回测并弹窗显示图（需有 GUI 环境）
+python -m ndx_rsi.cli_main run_backtest --strategy EMA_trend_v2 --symbol QQQ --plot
+
+# 生成当前信号（支持 NDX_short_term、EMA_cross_v1、EMA_trend_v2）
 python -m ndx_rsi.cli_main run_signal --strategy NDX_short_term --symbol QQQ
+python -m ndx_rsi.cli_main run_signal --strategy EMA_cross_v1 --symbol QQQ
+python -m ndx_rsi.cli_main run_signal --strategy EMA_trend_v2 --symbol QQQ
+# 说明：EMA 策略需 200+ 根 K 线，run_signal 会拉取约 400 日历史再计算当前信号
 
 # 验证 RSI 手写与 TA-Lib 一致性
 python -m ndx_rsi.cli_main verify_indicators --symbol QQQ --start 2024-01-01 --end 2025-02-09
@@ -63,6 +73,7 @@ pytest tests/ --cov=ndx_rsi --cov-report=term-missing  # 覆盖率
 
 - **v1**：`docs/v1/`（01-requirements_gathering 至 06-code-development、07-simplifications-and-backtest-impact）
 - **v2**：`docs/v2/`（01-requirements_gathering、04-technical-design、05-development-task-breakdown、06-code-development）；v2 在 v1 基础上增加回测止损止盈、连续 2 日市场环境、标准绩效指标、回撤熔断与可选背离
+- **v4**：`docs/v4/`（02-requirements-documentation 至 05-development-task-breakdown）；v4 新增 EMA 策略（EMA_cross_v1、EMA_trend_v2）、回测按日序列输出与回测后可视化（`--plot` / `--save-plot`）
 
 ## 免责声明
 

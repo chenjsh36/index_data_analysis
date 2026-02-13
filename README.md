@@ -1,6 +1,6 @@
-# NDX RSI 量化分析与交易信号系统
+# NDX 指数回测与信号系统
 
-纳斯达克100（NDX/QQQ/TQQQ）短线波段 RSI 策略：实现「50日均线定趋势 + 成交量验真假 + RSI找点位」的闭环。
+纳斯达克100（QQQ）EMA 趋势策略回测与当前信号：80/200 日均线定趋势 + 20 日波动率过滤，次日执行、无 Bar 内止损止盈，输出策略与基准（买入持有）对比。
 
 ## 环境要求
 
@@ -26,12 +26,14 @@ pip install -r requirements.txt
 
 ## 配置
 
-- `config/datasource.yaml`：数据源与标的（NDX/QQQ/TQQQ）
-- `config/strategy.yaml`：策略参数（RSI 周期、阈值、风控）、**v2 回测配置**（`backtest` 段：止损止盈开关、趋势破位、回撤熔断、无风险利率）、**v2 背离开关**（`use_divergence`）
+- `config/datasource.yaml`：数据源与标的（QQQ 等）
+- `config/strategy.yaml`：
+  - **backtest**：`use_stop_loss_take_profit`（默认 false）、`next_day_execution`（默认 true，T 日信号 T+1 日执行）、`commission`、`metrics.risk_free_rate` 等
+  - **strategies**：当前仅保留 **EMA_trend_v2**（ema_fast=80、ema_slow=200、vol_window=20、vol_threshold=0.02）
 
 可通过环境变量 `NDX_RSI_CONFIG` 指定 config 目录路径。
 
-**v2 回测**：回测时默认启用 Bar 内止损/止盈，绩效指标为标准口径（profit_factor = 总盈利/总亏损，夏普 = (年化收益 - 无风险)/收益标准差）。在 `strategy.yaml` 的 `backtest` 下可关闭 `use_stop_loss_take_profit` 以对比「仅信号平仓」结果。
+**回测逻辑**：默认次日执行、关闭 Bar 内止损/止盈，与 nasdaq_v1 等日频指数回测主流一致；输出为策略 vs 基准（买入持有）的累计收益、最大回撤、夏普对比。
 
 ## CLI 用法
 
@@ -39,26 +41,22 @@ pip install -r requirements.txt
 
 ```bash
 # 拉取数据
-python -m ndx_rsi.cli_main fetch_data --symbol QQQ --start 2024-01-01 --end 2026-02-09 -o data.csv
+python -m ndx_rsi.cli_main fetch_data --symbol QQQ --start 2024-01-01 --end 2025-12-31 -o data.csv
 
-# 回测（支持策略：NDX_short_term、EMA_cross_v1、EMA_trend_v2）
-python -m ndx_rsi.cli_main run_backtest --strategy NDX_short_term --symbol QQQ --start 2003-01-01 --end 2026-02-12
-python -m ndx_rsi.cli_main run_backtest --strategy EMA_cross_v1 --symbol QQQ --start 2003-01-01 --end 2025-12-31
-python -m ndx_rsi.cli_main run_backtest --strategy EMA_trend_v2 --symbol QQQ --start 2003-01-01 --end 2025-12-31
+# 回测（默认策略 EMA_trend_v2，默认区间 2003-01-01 至今日）
+python -m ndx_rsi.cli_main run_backtest --symbol QQQ
+python -m ndx_rsi.cli_main run_backtest --symbol QQQ --start 2002-06-15 --end 2025-12-31
 
-# 回测并保存累计收益图
-python -m ndx_rsi.cli_main run_backtest --strategy EMA_trend_v2 --symbol QQQ --start 2003-01-01 --end 2025-12-31 --save-plot output/ema_v1.png
-# 回测并弹窗显示图（需有 GUI 环境）
-python -m ndx_rsi.cli_main run_backtest --strategy EMA_trend_v2 --symbol QQQ --plot
+# 回测并保存/显示累计收益图
+python -m ndx_rsi.cli_main run_backtest --symbol QQQ --save-plot output/ema_trend_v2.png
+python -m ndx_rsi.cli_main run_backtest --symbol QQQ --plot
 
-# 生成当前信号（支持 NDX_short_term、EMA_cross_v1、EMA_trend_v2）
-python -m ndx_rsi.cli_main run_signal --strategy NDX_short_term --symbol QQQ
-python -m ndx_rsi.cli_main run_signal --strategy EMA_cross_v1 --symbol QQQ
-python -m ndx_rsi.cli_main run_signal --strategy EMA_trend_v2 --symbol QQQ
-# 说明：EMA 策略需 200+ 根 K 线，run_signal 会拉取约 400 日历史再计算当前信号
+# 生成当前信号（可读报告：收盘价、EMA、波动率、推导逻辑、操作建议、止损止盈）
+python -m ndx_rsi.cli_main run_signal --symbol QQQ
+# run_signal 会拉取约 400 日历史以计算 EMA200，再输出最新一根 K 线的信号报告
 
-# 验证 RSI 手写与 TA-Lib 一致性
-python -m ndx_rsi.cli_main verify_indicators --symbol QQQ --start 2024-01-01 --end 2025-02-09
+# 验证 RSI 手写与 TA-Lib 一致性（可选）
+python -m ndx_rsi.cli_main verify_indicators --symbol QQQ --start 2024-01-01 --end 2025-12-31
 ```
 
 ## 测试
@@ -71,9 +69,12 @@ pytest tests/ --cov=ndx_rsi --cov-report=term-missing  # 覆盖率
 
 ## 文档
 
-- **v1**：`docs/v1/`（01-requirements_gathering 至 06-code-development、07-simplifications-and-backtest-impact）
-- **v2**：`docs/v2/`（01-requirements_gathering、04-technical-design、05-development-task-breakdown、06-code-development）；v2 在 v1 基础上增加回测止损止盈、连续 2 日市场环境、标准绩效指标、回撤熔断与可选背离
-- **v4**：`docs/v4/`（02-requirements-documentation 至 05-development-task-breakdown）；v4 新增 EMA 策略（EMA_cross_v1、EMA_trend_v2）、回测按日序列输出与回测后可视化（`--plot` / `--save-plot`）
+- **v1**：`docs/v1/`（需求、技术设计、开发任务拆分等）
+- **v2**：`docs/v2/`（回测设计、绩效指标、回撤熔断等）
+- **v4**：`docs/v4/`（EMA 策略、回测序列与可视化、空仓无风险利率计息 06-backtest-cash-risk-free-accrual）
+- **v5**：`docs/v5/`（信号可读化与推导逻辑展示、run_signal 报告格式）
+
+当前策略仅保留 **EMA_trend_v2**（80/200 EMA + 波动率过滤），配置见 `config/strategy.yaml` 的 `strategies.EMA_trend_v2`。
 
 ## 免责声明
 

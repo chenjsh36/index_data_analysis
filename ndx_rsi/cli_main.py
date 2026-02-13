@@ -35,7 +35,7 @@ def cmd_run_backtest(args: argparse.Namespace) -> int:
     end = args.end or date.today().isoformat()
     if need_series:
         result, series_df = run_backtest(
-            strategy_name=args.strategy or "NDX_short_term",
+            strategy_name=args.strategy or "EMA_trend_v2",
             symbol=args.symbol or "QQQ",
             start_date=start,
             end_date=end,
@@ -43,7 +43,7 @@ def cmd_run_backtest(args: argparse.Namespace) -> int:
         )
     else:
         result = run_backtest(
-            strategy_name=args.strategy or "NDX_short_term",
+            strategy_name=args.strategy or "EMA_trend_v2",
             symbol=args.symbol or "QQQ",
             start_date=start,
             end_date=end,
@@ -69,7 +69,7 @@ def cmd_run_backtest(args: argparse.Namespace) -> int:
     else:
         print("Backtest result:", result)
     if need_series and not series_df.empty:
-        title = f"{getattr(args, 'symbol', 'QQQ')} {getattr(args, 'strategy', 'NDX_short_term')} Cumulative Returns"
+        title = f"{getattr(args, 'symbol', 'QQQ')} {getattr(args, 'strategy', 'EMA_trend_v2')} Cumulative Returns"
         save_path = getattr(args, "save_plot", None)
         show = getattr(args, "plot", False) and not save_path
         plot_cumulative_returns(series_df, title=title, save_path=save_path, show=show)
@@ -87,7 +87,7 @@ def cmd_run_signal(args: argparse.Namespace) -> int:
     )
     from ndx_rsi.strategy.factory import create_strategy
 
-    strategy_name = args.strategy or "NDX_short_term"
+    strategy_name = args.strategy or "EMA_trend_v2"
     config = get_datasource_config(args.symbol) or {"code": args.symbol}
     ds = YFinanceDataSource(args.symbol, config)
     # EMA 策略需要 200+ 根 K 线，用更长的历史拉取
@@ -178,7 +178,7 @@ def main() -> int:
 
     # run_backtest
     p2 = sub.add_parser("run_backtest", help="Run backtest and print metrics")
-    p2.add_argument("--strategy", default="NDX_short_term", help="策略名：NDX_short_term, EMA_cross_v1, EMA_trend_v2")
+    p2.add_argument("--strategy", default="EMA_trend_v2", help="策略名：EMA_trend_v2")
     p2.add_argument("--symbol", default="QQQ", help="回测标的，如 QQQ、TQQQ")
     p2.add_argument("--start", default="2003-01-01", help="回测起始日期，与 nasdaq_v1 一致")
     p2.add_argument("--end", default=None, help="回测结束日期，默认今日")
@@ -188,7 +188,7 @@ def main() -> int:
 
     # run_signal
     p3 = sub.add_parser("run_signal", help="Generate signal for latest data")
-    p3.add_argument("--strategy", default="NDX_short_term")
+    p3.add_argument("--strategy", default="EMA_trend_v2")
     p3.add_argument("--symbol", default="QQQ", help="信号标的，如 QQQ、TQQQ")
     p3.set_defaults(func=cmd_run_signal)
 

@@ -3,6 +3,7 @@ CLI 入口：fetch_data、run_backtest、run_signal、verify_indicators。
 """
 import argparse
 import sys
+from datetime import date
 from pathlib import Path
 
 # 确保包可被导入（当以 python -m ndx_rsi.cli_main 或脚本方式运行时）
@@ -30,25 +31,43 @@ def cmd_run_backtest(args: argparse.Namespace) -> int:
     from ndx_rsi.plot import plot_cumulative_returns
 
     need_series = getattr(args, "plot", False) or getattr(args, "save_plot", None)
+    start = args.start or "2003-01-01"
+    end = args.end or date.today().isoformat()
     if need_series:
         result, series_df = run_backtest(
             strategy_name=args.strategy or "NDX_short_term",
             symbol=args.symbol or "QQQ",
-            start_date=args.start or "2018-01-01",
-            end_date=args.end or "2025-01-01",
+            start_date=start,
+            end_date=end,
             return_series=True,
         )
     else:
         result = run_backtest(
             strategy_name=args.strategy or "NDX_short_term",
             symbol=args.symbol or "QQQ",
-            start_date=args.start or "2018-01-01",
-            end_date=args.end or "2025-01-01",
+            start_date=start,
+            end_date=end,
         )
     if "error" in result:
         print("Error:", result["error"])
         return 1
-    print("Backtest result:", result)
+    # 策略 vs 基准对比输出
+    if "strategy" in result and "benchmark" in result:
+        s, b = result["strategy"], result["benchmark"]
+        print("=" * 56)
+        print("  Backtest 策略 vs 基准（买入持有）")
+        print("=" * 56)
+        print(f"  {'指标':<18} {'策略':>12} {'基准':>12} {'差异':>10}")
+        print("-" * 56)
+        sr, br = s.get("total_return", 0), b.get("total_return", 0)
+        print(f"  {'累计收益率':<18} {sr:>11.2%} {br:>11.2%} {(sr - br):>+9.2%}")
+        print(f"  {'最大回撤':<18} {s.get('max_drawdown', 0):>11.2%} {b.get('max_drawdown', 0):>11.2%} {(s.get('max_drawdown', 0) - b.get('max_drawdown', 0)):>+9.2%}")
+        print(f"  {'夏普比率':<18} {s.get('sharpe_ratio', 0):>12.4} {b.get('sharpe_ratio', 0):>12.4} {(s.get('sharpe_ratio', 0) - b.get('sharpe_ratio', 0)):>+10.4}")
+        print("-" * 56)
+        print(f"  策略额外: 胜率 {s.get('win_rate', 0):.2%} | 交易次数 {s.get('total_trades', 0)} | 盈亏比 {s.get('profit_factor', 0):.2f}")
+        print("=" * 56)
+    else:
+        print("Backtest result:", result)
     if need_series and not series_df.empty:
         title = f"{getattr(args, 'symbol', 'QQQ')} {getattr(args, 'strategy', 'NDX_short_term')} Cumulative Returns"
         save_path = getattr(args, "save_plot", None)
@@ -161,8 +180,8 @@ def main() -> int:
     p2 = sub.add_parser("run_backtest", help="Run backtest and print metrics")
     p2.add_argument("--strategy", default="NDX_short_term", help="策略名：NDX_short_term, EMA_cross_v1, EMA_trend_v2")
     p2.add_argument("--symbol", default="QQQ", help="回测标的，如 QQQ、TQQQ")
-    p2.add_argument("--start", default="2018-01-01")
-    p2.add_argument("--end", default="2025-01-01")
+    p2.add_argument("--start", default="2003-01-01", help="回测起始日期，与 nasdaq_v1 一致")
+    p2.add_argument("--end", default=None, help="回测结束日期，默认今日")
     p2.add_argument("--plot", action="store_true", help="回测完成后弹窗显示累计收益图")
     p2.add_argument("--save-plot", metavar="PATH", default=None, help="回测完成后保存累计收益图到指定路径")
     p2.set_defaults(func=cmd_run_backtest)

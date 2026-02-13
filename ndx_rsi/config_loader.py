@@ -67,6 +67,7 @@ def get_backtest_config() -> Dict[str, Any]:
     metrics = raw.get("metrics", {})
     return {
         "use_stop_loss_take_profit": raw.get("use_stop_loss_take_profit", True),
+        "next_day_execution": raw.get("next_day_execution", False),
         "use_ma50_exit": raw.get("use_ma50_exit", False),
         "circuit_breaker": {
             "enabled": cb.get("enabled", False),
@@ -76,6 +77,7 @@ def get_backtest_config() -> Dict[str, Any]:
         },
         "metrics": {
             "risk_free_rate": metrics.get("risk_free_rate", 0.0),
+            "accrue_risk_free_when_flat": metrics.get("accrue_risk_free_when_flat", True),
         },
         "commission": raw.get("commission", 0.0005),
     }

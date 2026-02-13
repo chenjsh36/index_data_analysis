@@ -1,6 +1,7 @@
 """
 YFinance 数据源实现：拉取 NDX/QQQ/TQQQ 等日线或分钟线，列名统一小写，优先前复权。
 """
+import time
 from typing import Optional
 
 import pandas as pd
@@ -10,6 +11,40 @@ from ndx_rsi.data.base import BaseDataSource
 
 # yfinance interval: 1m, 2m, 5m, 15m, 30m, 60m, 1d, 5d, 1wk, 1mo
 _FREQ_TO_INTERVAL = {"1d": "1d", "30m": "30m", "1h": "1h", "1w": "1wk", "1wk": "1wk"}
+
+
+def _fetch_hist_with_retry(
+    ticker, start_date: str, end_date: str, interval: str, symbol: str, max_retries: int = 2
+) -> pd.DataFrame:
+    """拉取 history，遇 yfinance 内部 None/异常时重试，避免二次请求限流或瞬时故障报错。"""
+    import yfinance as yf
+
+    last_err = None
+    for attempt in range(max_retries):
+        try:
+            hist = ticker.history(start=start_date, end=end_date, interval=interval)
+            if hist is not None and not hist.empty:
+                return hist
+            if attempt < max_retries - 1:
+                time.sleep(1.5)
+        except (TypeError, KeyError, AttributeError) as e:
+            last_err = e
+            if attempt < max_retries - 1:
+                time.sleep(1.5)
+    # 用 download 兜底（部分环境下更稳定）
+    try:
+        df = yf.download(symbol, start=start_date, end=end_date, interval=interval, progress=False, auto_adjust=True)
+        if df is not None and not df.empty:
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
+            return df
+    except Exception:
+        pass
+    if last_err is not None:
+        raise RuntimeError(
+            "Yahoo Finance 返回异常或空数据（可能被限流或网络波动），请稍后重试。"
+        ) from last_err
+    return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
 
 
 class YFinanceDataSource(BaseDataSource):
@@ -26,7 +61,7 @@ class YFinanceDataSource(BaseDataSource):
         interval = _FREQ_TO_INTERVAL.get(frequency, "1d")
         code = self.config.get("code", self.index_code)
         ticker = yf.Ticker(code)
-        hist = ticker.history(start=start_date, end=end_date, interval=interval)
+        hist = _fetch_hist_with_retry(ticker, start_date, end_date, interval, symbol=code)
         if hist.empty:
             return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
 

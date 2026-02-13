@@ -5,8 +5,10 @@
 # 回测专用配置（全局，仅影响 run_backtest；见 docs/v2/04-technical-design.md）
 # ---------------------------------------------------------------------------
 backtest:
-  # 是否在每根 K 线检查止损/止盈触达并平仓（true=启用，与实盘风控一致）
-  use_stop_loss_take_profit: true
+  # 是否在每根 K 线检查止损/止盈触达并平仓（false=关闭，与 nasdaq_v1 等日频指数回测主流一致）
+  use_stop_loss_take_profit: false
+  # T 日信号 → T+1 日执行（次日执行），与 use_stop_loss_take_profit 同时使用更贴近指数日频回测
+  next_day_execution: true
   # 是否启用趋势破位止损：收盘价跌破/站上 50 日均线时平仓
   use_ma50_exit: false
   # 回撤熔断：累计回撤超阈值时平仓并暂停开仓
@@ -17,8 +19,9 @@ backtest:
     cooldown_bars: 2          # 熔断后禁止新开仓的 K 线数量
   # 绩效指标计算
   metrics:
-    risk_free_rate: 0.0       # 夏普比率计算用无风险利率（年化），如 0.02 表示 2%
-  commission: 0.0005          # 单边手续费比例，如 0.0005 表示 0.05%
+    risk_free_rate: 0.00      # 夏普比率计算用无风险利率（年化），如 0.02 表示 2%
+    accrue_risk_free_when_flat: false  # 空仓时权益按无风险利率日复利，更贴近实际资金增值（见 docs/v4/06-backtest-cash-risk-free-accrual.md）
+  commission: 0               # 单边手续费比例，0=无手续费（当前回测设为 0）
 
 # ---------------------------------------------------------------------------
 # 策略定义：strategies.<策略名> 下为各策略参数

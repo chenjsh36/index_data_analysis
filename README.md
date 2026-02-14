@@ -59,6 +59,19 @@ python -m ndx_rsi.cli_main run_signal --symbol QQQ
 python -m ndx_rsi.cli_main verify_indicators --symbol QQQ --start 2024-01-01 --end 2025-12-31
 ```
 
+## v6：每日信号推送与静态页
+
+- **定时跑信号并推送**：在 GitHub 上配置 Secrets 后，可用 Actions 每日自动跑信号并发送到邮件、钉钉。
+  - 工作流：`.github/workflows/daily_signal.yml`（定时 + 手动触发）。
+  - Secrets：`EMAIL_SENDER`、`EMAIL_PASSWORD`、`EMAIL_RECEIVERS`（邮件）；`CUSTOM_WEBHOOK_URLS`（钉钉等 Webhook，逗号分隔）；可选 `SYMBOL`、`STRATEGY`。
+  - 本地测试推送：`PYTHONPATH=. python scripts/run_signal_and_notify.py`（需配置上述环境变量）。
+- **静态页**：在仓库内生成 5 年走势与当日信号 JSON 后，用浏览器打开页面查看。
+  - 生成数据：`PYTHONPATH=. python scripts/generate_static_data.py --out-dir web`
+  - 启动服务：`cd web && python3 -m http.server 8080`，访问 `http://localhost:8080`
+  - 页面会加载 `web/timeseries.json` 与 `web/signal.json`（ECharts 走势图 + 信号卡片）。
+
+详见 `docs/v6/`（需求、技术方案、任务拆分与实现说明）。
+
 ## 测试
 
 ```bash
@@ -73,6 +86,7 @@ pytest tests/ --cov=ndx_rsi --cov-report=term-missing  # 覆盖率
 - **v2**：`docs/v2/`（回测设计、绩效指标、回撤熔断等）
 - **v4**：`docs/v4/`（EMA 策略、回测序列与可视化、空仓无风险利率计息 06-backtest-cash-risk-free-accrual）
 - **v5**：`docs/v5/`（信号可读化与推导逻辑展示、run_signal 报告格式）
+- **v6**：`docs/v6/`（每日信号推送、静态页、GitHub Actions、设计系统）
 
 当前策略仅保留 **EMA_trend_v2**（80/200 EMA + 波动率过滤），配置见 `config/strategy.yaml` 的 `strategies.EMA_trend_v2`。
 

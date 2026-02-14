@@ -1,0 +1,34 @@
+# v6: 每日跑信号并推送到邮件、钉钉（参考 daily_stock_analysis）
+name: 每日信号
+
+on:
+  schedule:
+    # 每日 UTC 22:00 ≈ 北京时间 06:00（美股收盘后）
+    - cron: "0 22 * * *"
+  workflow_dispatch:
+
+jobs:
+  run-signal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run signal and notify
+        env:
+          SYMBOL: ${{ secrets.SYMBOL || 'QQQ' }}
+          STRATEGY: ${{ secrets.STRATEGY || 'EMA_trend_v2' }}
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECEIVERS: ${{ secrets.EMAIL_RECEIVERS }}
+          CUSTOM_WEBHOOK_URLS: ${{ secrets.CUSTOM_WEBHOOK_URLS }}
+        run: PYTHONPATH=. python scripts/run_signal_and_notify.py

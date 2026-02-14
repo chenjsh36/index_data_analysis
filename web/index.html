@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QQQ 指数与信号</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+  <style>
+    :root {
+      --color-primary: #2563EB;
+      --color-secondary: #3B82F6;
+      --color-cta: #F97316;
+      --color-background: #F8FAFC;
+      --color-text: #1E293B;
+      --space-md: 1rem;
+      --space-lg: 1.5rem;
+      --space-xl: 2rem;
+      --space-2xl: 3rem;
+      --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+      --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--color-background);
+      color: var(--color-text);
+      margin: 0;
+      padding: var(--space-xl);
+      min-height: 100vh;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0 0 var(--space-lg) 0;
+    }
+    .chart-wrap {
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 12px;
+      padding: var(--space-lg);
+      box-shadow: var(--shadow-md);
+      margin-bottom: var(--space-2xl);
+      transition: box-shadow 200ms ease;
+    }
+    .chart-wrap:hover { box-shadow: var(--shadow-lg); }
+    #chart { width: 100%; height: 360px; }
+    .signal-card {
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 12px;
+      padding: var(--space-xl);
+      box-shadow: var(--shadow-md);
+      transition: box-shadow 200ms ease, transform 200ms ease;
+    }
+    .signal-card:hover { box-shadow: var(--shadow-lg); }
+    .signal-card h2 { font-size: 1.125rem; margin: 0 0 var(--space-md) 0; }
+    .signal-card .row { margin-bottom: var(--space-md); }
+    .signal-card .label { color: #64748b; font-size: 0.875rem; }
+    .signal-card .value { font-weight: 600; }
+    .signal-card .derivation, .signal-card .action {
+      margin-top: var(--space-md);
+      padding: var(--space-md);
+      background: rgba(37,99,235,0.08);
+      border-radius: 8px;
+      font-size: 0.9375rem;
+    }
+    .signal-card .action { color: var(--color-cta); font-weight: 600; }
+    .error { color: #dc2626; }
+    @media (prefers-reduced-motion: reduce) {
+      .chart-wrap, .signal-card { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <h1>QQQ 指数与信号</h1>
+  <div class="chart-wrap">
+    <div id="chart"></div>
+  </div>
+  <div class="signal-card" id="signal-card">
+    <h2>当日信号</h2>
+    <div id="signal-content">加载中…</div>
+  </div>
+
+  <script>
+    (function () {
+      const chartEl = document.getElementById('chart');
+      const signalEl = document.getElementById('signal-content');
+
+      // ECharts 5 年走势
+      fetch('timeseries.json')
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
+        .then(function (data) {
+          const dates = data.series.map(function (p) { return p[0]; });
+          const closes = data.series.map(function (p) { return p[1]; });
+          const chart = echarts.init(chartEl);
+          chart.setOption({
+            tooltip: { trigger: 'axis' },
+            grid: { left: '3%', right: '4%', bottom: '3%', top: '8%', containLabel: true },
+            xAxis: { type: 'category', data: dates, boundaryGap: false },
+            yAxis: { type: 'value', scale: true, splitLine: { lineStyle: { opacity: 0.3 } } },
+            series: [{ name: '收盘价', type: 'line', data: closes, smooth: true, symbol: 'none', lineStyle: { color: '#2563EB' }, areaStyle: { color: 'rgba(37,99,235,0.1)' } }]
+          });
+          window.addEventListener('resize', function () { chart.resize(); });
+        })
+        .catch(function () {
+          chartEl.innerHTML = '<p class="error">无法加载 timeseries.json，请先运行 scripts/generate_static_data.py</p>';
+        });
+
+      // 当日信号
+      fetch('signal.json')
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
+        .then(function (s) {
+          if (s.error) {
+            signalEl.innerHTML = '<p class="error">' + (s.error === 'insufficient_data' ? '数据不足' : s.error) + '</p>';
+            return;
+          }
+          const fmt = function (v) { return v != null ? Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'; };
+          signalEl.innerHTML =
+            '<div class="row"><span class="label">日期</span> ' + (s.date || '—') + '</div>' +
+            '<div class="row"><span class="label">标的</span> ' + (s.symbol || '—') + ' · ' + (s.strategy || '—') + '</div>' +
+            '<div class="row"><span class="label">收盘价</span> <span class="value">' + fmt(s.close) + '</span></div>' +
+            '<div class="row"><span class="label">EMA(快/慢)</span> ' + fmt(s.ema_fast) + ' / ' + fmt(s.ema_slow) + '</div>' +
+            '<div class="row"><span class="label">20日波动率</span> ' + (s.vol_20 != null ? (s.vol_20 * 100).toFixed(2) + '%' : '—') + '</div>' +
+            (s.derivation ? '<div class="derivation">' + s.derivation + '</div>' : '') +
+            (s.action ? '<div class="action">操作建议：' + s.action + '</div>' : '');
+        })
+        .catch(function () {
+          signalEl.innerHTML = '<p class="error">无法加载 signal.json，请先运行 scripts/generate_static_data.py</p>';
+        });
+    })();
+  </script>
+</body>
+</html>

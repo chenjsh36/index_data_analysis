@@ -245,3 +245,69 @@ def print_signal_report(
 ) -> None:
     """格式化并打印信号报告。"""
     print(format_signal_report(strategy_name, symbol, df, sig, risk, strategy_config))
+
+
+def _float_or_none(row: pd.Series, key: str):
+    """取 row 中 key 的浮点值，缺失或 NaN 返回 None。"""
+    if key not in row.index:
+        return None
+    v = row[key]
+    if pd.isna(v):
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def signal_report_to_dict(
+    strategy_name: str,
+    symbol: str,
+    df: pd.DataFrame,
+    sig: Dict[str, Any],
+    risk: Dict[str, Any],
+    strategy_config: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    生成供静态页/JSON 使用的信号字典（EMA_trend_v2）。
+    与 format_signal_report 字段一致；未知策略返回 None。
+    """
+    if df.empty:
+        return None
+    row = df.iloc[-1]
+    date_str = _fmt_date(df.index[-1])
+    action = _action_from_position(sig)
+
+    if strategy_name == "EMA_trend_v2":
+        config = strategy_config or {}
+        fast = config.get("ema_fast", 80)
+        slow = config.get("ema_slow", 200)
+        vol_window = config.get("vol_window", 20)
+        vol_threshold = config.get("vol_threshold", 0.02)
+        ema_f = f"ema_{fast}"
+        ema_s = f"ema_{slow}"
+        vol_col = f"vol_{vol_window}"
+        v_f = _get(row, ema_f)
+        v_s = _get(row, ema_s)
+        vol_val = _get(row, vol_col)
+        reason = (sig.get("reason") or "").strip()
+        position = float(sig.get("position", 0) or 0)
+        uptrend = reason == "uptrend_low_vol" and position >= 0.5
+        if uptrend:
+            derivation = f"EMA{fast}({v_f}) > EMA{slow}({v_s}) → 上升趋势；{vol_col}({vol_val}) < {vol_threshold} → 低波动；上升+低波动 → 满仓持有"
+        else:
+            derivation = f"EMA{fast}({v_f}) vs EMA{slow}({v_s})；{vol_col}({vol_val}) 阈值{vol_threshold}；未满足「上升+低波动」→ 空仓/减仓"
+        return {
+            "date": date_str,
+            "symbol": symbol,
+            "strategy": strategy_name,
+            "close": _float_or_none(row, "close"),
+            "ema_fast": _float_or_none(row, ema_f),
+            "ema_slow": _float_or_none(row, ema_s),
+            "vol_20": _float_or_none(row, vol_col),
+            "derivation": derivation,
+            "action": action,
+            "stop_loss": risk.get("stop_loss"),
+            "take_profit": risk.get("take_profit"),
+        }
+    return None

@@ -70,6 +70,7 @@ python -m ndx_rsi.cli_main verify_indicators --symbol QQQ --start 2024-01-01 --e
   - 启动服务：`cd web && python3 -m http.server 8080`，访问 `http://localhost:8080`
   - 页面会加载 `web/timeseries.json` 与 `web/signal.json`（ECharts 走势图 + 信号卡片）。
 
+**GitHub 仓库配置**：启用 Actions、配置 Secrets（邮件/钉钉）等步骤见 [docs/v6/setup-github.md](docs/v6/setup-github.md)。  
 详见 `docs/v6/`（需求、技术方案、任务拆分与实现说明）。
 
 ## 测试

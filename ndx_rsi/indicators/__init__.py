@@ -6,6 +6,8 @@ from ndx_rsi.indicators.rsi import (
 from ndx_rsi.indicators.ma import calculate_ma, calculate_ma5, calculate_ma20
 from ndx_rsi.indicators.volume_ratio import calculate_volume_ratio
 from ndx_rsi.indicators.market_env import judge_market_env, get_rsi_thresholds
+from ndx_rsi.indicators.adx import calculate_adx
+from ndx_rsi.indicators.macd import calculate_macd
 
 __all__ = [
     "calculate_rsi_handwrite",
@@ -17,4 +19,6 @@ __all__ = [
     "calculate_volume_ratio",
     "judge_market_env",
     "get_rsi_thresholds",
+    "calculate_adx",
+    "calculate_macd",
 ]

@@ -52,6 +52,7 @@ def generate_signal(symbol: str, strategy_name: str, out_dir: Path) -> None:
     from ndx_rsi.data import YFinanceDataSource, preprocess_ohlcv
     from ndx_rsi.report import signal_report_to_dict
     from ndx_rsi.strategy.factory import create_strategy
+    from ndx_rsi.indicators import calculate_ma, calculate_adx, calculate_macd
 
     config = get_datasource_config(symbol) or {"code": symbol}
     ds = YFinanceDataSource(symbol, config)
@@ -72,6 +73,30 @@ def generate_signal(symbol: str, strategy_name: str, out_dir: Path) -> None:
         df["ema_" + str(ema_slow)] = df["close"].ewm(span=ema_slow, adjust=False).mean()
         df["daily_return"] = df["close"].pct_change()
         df["vol_" + str(vol_window)] = df["daily_return"].rolling(vol_window).std()
+    elif strategy_name == "EMA_trend_v3":
+        ema_fast = sc.get("ema_fast", 80)
+        ema_slow = sc.get("ema_slow", 200)
+        vol_window = sc.get("vol_window", 20)
+        adx_period = sc.get("adx_period", 14)
+        macd_fast = sc.get("macd_fast", 12)
+        macd_slow = sc.get("macd_slow", 26)
+        macd_signal = sc.get("macd_signal", 9)
+        min_bars = 200
+        if df.empty or len(df) < min_bars:
+            _write_json(out_dir / "signal.json", {"error": "insufficient_data"})
+            return
+        df["ema_" + str(ema_fast)] = df["close"].ewm(span=ema_fast, adjust=False).mean()
+        df["ema_" + str(ema_slow)] = df["close"].ewm(span=ema_slow, adjust=False).mean()
+        df["daily_return"] = df["close"].pct_change()
+        df["vol_" + str(vol_window)] = df["daily_return"].rolling(vol_window).std()
+        df["sma_200"] = calculate_ma(df["close"], 200)
+        df["adx_" + str(adx_period)] = calculate_adx(
+            df["high"], df["low"], df["close"], period=adx_period
+        )
+        macd_line, _, _ = calculate_macd(
+            df["close"], fast=macd_fast, slow=macd_slow, signal=macd_signal
+        )
+        df["macd_line"] = macd_line
     else:
         if df.empty or len(df) < 50:
             _write_json(out_dir / "signal.json", {"error": "insufficient_data"})

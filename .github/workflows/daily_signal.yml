@@ -26,7 +26,7 @@ jobs:
       - name: Run signal and notify
         env:
           SYMBOL: ${{ secrets.SYMBOL || 'QQQ' }}
-          STRATEGY: ${{ secrets.STRATEGY || 'EMA_trend_v2' }}
+          STRATEGY: ${{ secrets.STRATEGY || 'EMA_trend_v3' }}
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECEIVERS: ${{ secrets.EMAIL_RECEIVERS }}

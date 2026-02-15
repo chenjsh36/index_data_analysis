@@ -19,12 +19,18 @@ def _get_report(symbol: str, strategy_name: str) -> str:
     from ndx_rsi.config_loader import get_datasource_config, get_strategy_config
     from ndx_rsi.data import YFinanceDataSource, preprocess_ohlcv
     from ndx_rsi.report import format_signal_report
-    from ndx_rsi.indicators import calculate_ma, calculate_rsi_handwrite, calculate_volume_ratio
+    from ndx_rsi.indicators import (
+        calculate_ma,
+        calculate_rsi_handwrite,
+        calculate_volume_ratio,
+        calculate_adx,
+        calculate_macd,
+    )
     from ndx_rsi.strategy.factory import create_strategy
 
     config = get_datasource_config(symbol) or {"code": symbol}
     ds = YFinanceDataSource(symbol, config)
-    if strategy_name in ("EMA_cross_v1", "EMA_trend_v2"):
+    if strategy_name in ("EMA_cross_v1", "EMA_trend_v2", "EMA_trend_v3"):
         import datetime
         end = datetime.date.today()
         start = end - datetime.timedelta(days=400)
@@ -54,6 +60,30 @@ def _get_report(symbol: str, strategy_name: str) -> str:
         df["ema_" + str(ema_slow)] = df["close"].ewm(span=ema_slow, adjust=False).mean()
         df["daily_return"] = df["close"].pct_change()
         df["vol_" + str(vol_window)] = df["daily_return"].rolling(vol_window).std()
+    elif strategy_name == "EMA_trend_v3":
+        sc = get_strategy_config(strategy_name) or {}
+        ema_fast = sc.get("ema_fast", 80)
+        ema_slow = sc.get("ema_slow", 200)
+        vol_window = sc.get("vol_window", 20)
+        adx_period = sc.get("adx_period", 14)
+        macd_fast = sc.get("macd_fast", 12)
+        macd_slow = sc.get("macd_slow", 26)
+        macd_signal = sc.get("macd_signal", 9)
+        min_bars = 200
+        if df.empty or len(df) < min_bars:
+            return f"【无数据】需要至少 {min_bars} 根 K 线。"
+        df["ema_" + str(ema_fast)] = df["close"].ewm(span=ema_fast, adjust=False).mean()
+        df["ema_" + str(ema_slow)] = df["close"].ewm(span=ema_slow, adjust=False).mean()
+        df["daily_return"] = df["close"].pct_change()
+        df["vol_" + str(vol_window)] = df["daily_return"].rolling(vol_window).std()
+        df["sma_200"] = calculate_ma(df["close"], 200)
+        df["adx_" + str(adx_period)] = calculate_adx(
+            df["high"], df["low"], df["close"], period=adx_period
+        )
+        macd_line, _, _ = calculate_macd(
+            df["close"], fast=macd_fast, slow=macd_slow, signal=macd_signal
+        )
+        df["macd_line"] = macd_line
     else:
         if df.empty or len(df) < 50:
             return "【无数据】K 线不足。"

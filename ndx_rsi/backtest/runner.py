@@ -31,6 +31,8 @@ from ndx_rsi.indicators import (
     calculate_ma5,
     calculate_ma20,
     calculate_volume_ratio,
+    calculate_adx,
+    calculate_macd,
 )
 from ndx_rsi.strategy.factory import create_strategy
 
@@ -97,6 +99,30 @@ def run_backtest(
         df["daily_return"] = df["close"].pct_change()
         df["vol_" + str(vol_window)] = df["daily_return"].rolling(vol_window).std()
         loop_start = max(50, ema_slow)
+        if len(df) < loop_start:
+            return {"error": "insufficient_data", "win_rate": 0, "max_drawdown": 0}
+    elif strategy_name == "EMA_trend_v3":
+        sc = get_strategy_config(strategy_name) or {}
+        ema_fast = sc.get("ema_fast", 80)
+        ema_slow = sc.get("ema_slow", 200)
+        vol_window = sc.get("vol_window", 20)
+        adx_period = sc.get("adx_period", 14)
+        macd_fast = sc.get("macd_fast", 12)
+        macd_slow = sc.get("macd_slow", 26)
+        macd_signal = sc.get("macd_signal", 9)
+        df["ema_" + str(ema_fast)] = df["close"].ewm(span=ema_fast, adjust=False).mean()
+        df["ema_" + str(ema_slow)] = df["close"].ewm(span=ema_slow, adjust=False).mean()
+        df["daily_return"] = df["close"].pct_change()
+        df["vol_" + str(vol_window)] = df["daily_return"].rolling(vol_window).std()
+        df["sma_200"] = calculate_ma(df["close"], 200)
+        df["adx_" + str(adx_period)] = calculate_adx(
+            df["high"], df["low"], df["close"], period=adx_period
+        )
+        macd_line, _, _ = calculate_macd(
+            df["close"], fast=macd_fast, slow=macd_slow, signal=macd_signal
+        )
+        df["macd_line"] = macd_line
+        loop_start = 200
         if len(df) < loop_start:
             return {"error": "insufficient_data", "win_rate": 0, "max_drawdown": 0}
     else:

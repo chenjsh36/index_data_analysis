@@ -2,6 +2,7 @@
 EMA 策略：与 nasdaq_v1 逻辑一致。
 - v1: 50/200 EMA 黄金/死亡交叉 + 可选月度调仓 + 止损由 runner 执行
 - v2: 80/200 EMA 趋势 + 20 日波动率过滤，仅在上升趋势+低波动时持仓
+- v3: 纳指机构级，五条件全满足才做多（80>200EMA、close>80EMA、ADX>25、MACD>0、close>SMA200；可选 VIX、vol_20）
 """
 from typing import Any, Dict, Optional
 
@@ -74,6 +75,78 @@ class EMACrossoverV1Strategy(BaseTradingStrategy):
         close = float(data["close"].iloc[-1])
         rc = self.config.get("risk_control", {})
         stop_r = rc.get("stop_loss_ratio", self.config.get("stop_loss_ratio", 0.05))
+        take_r = rc.get("take_profit_ratio", 0.20)
+        return {
+            "stop_loss": close * (1 - stop_r),
+            "take_profit": close * (1 + take_r),
+        }
+
+
+class EMATrendV3Strategy(BaseTradingStrategy):
+    """纳指机构级 v3：仅条件 1（80EMA>200EMA）为做多依据；条件 2～5 为辅助参考；五条件全满足时强烈买入。"""
+
+    def generate_signal(
+        self,
+        data: pd.DataFrame,
+        current_position_info: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        if data.empty or len(data) < 2:
+            return {"signal": "hold", "position": 0.0, "reason": "insufficient_data"}
+        fast = self.config.get("ema_fast", 80)
+        slow = self.config.get("ema_slow", 200)
+        adx_period = self.config.get("adx_period", 14)
+        adx_threshold = self.config.get("adx_threshold", 25)
+        vol_window = self.config.get("vol_window", 20)
+        vol_threshold = self.config.get("vol_threshold", 0.02)
+        use_vol_filter = self.config.get("use_vol_filter", False)
+        vix_threshold = self.config.get("vix_threshold", 25)
+        vix = kwargs.get("vix")
+
+        ema_fast_col = f"ema_{fast}"
+        ema_slow_col = f"ema_{slow}"
+        adx_col = f"adx_{adx_period}"
+        vol_col = f"vol_{vol_window}"
+        required = [ema_fast_col, ema_slow_col, "sma_200", adx_col, "macd_line"]
+        if use_vol_filter:
+            required.append(vol_col)
+        for col in required:
+            if col not in data.columns:
+                return {"signal": "hold", "position": 0.0, "reason": "missing_indicators"}
+
+        row = data.iloc[-1]
+        close = float(row["close"])
+        ema_fast = float(row[ema_fast_col])
+        ema_slow = float(row[ema_slow_col])
+        sma200 = float(row["sma_200"])
+        adx_val = float(row[adx_col])
+        macd_val = float(row["macd_line"])
+
+        # 仅条件 1 作为做多依据
+        if not (ema_fast > ema_slow):
+            return {"signal": "sell", "position": 0.0, "reason": "ema_not_uptrend"}
+        if vix is not None and float(vix) >= vix_threshold:
+            return {"signal": "sell", "position": 0.0, "reason": "vix_above_25"}
+        if use_vol_filter:
+            if float(row[vol_col]) >= vol_threshold:
+                return {"signal": "sell", "position": 0.0, "reason": "vol_above_threshold"}
+
+        # 做多：五条件全满足则强烈买入，否则为一般做多（辅助条件供参考）
+        all_five = (
+            close > ema_fast
+            and adx_val > adx_threshold
+            and macd_val > 0
+            and close > sma200
+        )
+        reason = "all_conditions_met" if all_five else "uptrend"
+        return {"signal": "buy", "position": 1.0, "reason": reason}
+
+    def calculate_risk(self, signal: Dict[str, Any], data: pd.DataFrame) -> Dict[str, Any]:
+        if data.empty:
+            return {"stop_loss": 0.0, "take_profit": 0.0}
+        close = float(data["close"].iloc[-1])
+        rc = self.config.get("risk_control", {})
+        stop_r = rc.get("stop_loss_ratio", 0.05)
         take_r = rc.get("take_profit_ratio", 0.20)
         return {
             "stop_loss": close * (1 - stop_r),

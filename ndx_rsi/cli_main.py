@@ -84,6 +84,8 @@ def cmd_run_signal(args: argparse.Namespace) -> int:
         calculate_rsi_handwrite,
         calculate_ma,
         calculate_volume_ratio,
+        calculate_adx,
+        calculate_macd,
     )
     from ndx_rsi.strategy.factory import create_strategy
 
@@ -91,7 +93,7 @@ def cmd_run_signal(args: argparse.Namespace) -> int:
     config = get_datasource_config(args.symbol) or {"code": args.symbol}
     ds = YFinanceDataSource(args.symbol, config)
     # EMA 策略需要 200+ 根 K 线，用更长的历史拉取
-    if strategy_name in ("EMA_cross_v1", "EMA_trend_v2"):
+    if strategy_name in ("EMA_cross_v1", "EMA_trend_v2", "EMA_trend_v3"):
         import datetime
         end = datetime.date.today()
         start = end - datetime.timedelta(days=400)
@@ -123,6 +125,31 @@ def cmd_run_signal(args: argparse.Namespace) -> int:
         df["ema_" + str(ema_slow)] = df["close"].ewm(span=ema_slow, adjust=False).mean()
         df["daily_return"] = df["close"].pct_change()
         df["vol_" + str(vol_window)] = df["daily_return"].rolling(vol_window).std()
+    elif strategy_name == "EMA_trend_v3":
+        sc = get_strategy_config(strategy_name) or {}
+        ema_fast = sc.get("ema_fast", 80)
+        ema_slow = sc.get("ema_slow", 200)
+        vol_window = sc.get("vol_window", 20)
+        adx_period = sc.get("adx_period", 14)
+        macd_fast = sc.get("macd_fast", 12)
+        macd_slow = sc.get("macd_slow", 26)
+        macd_signal = sc.get("macd_signal", 9)
+        min_bars = 200
+        if df.empty or len(df) < min_bars:
+            print(f"Insufficient data for signal (need at least {min_bars} bars).")
+            return 1
+        df["ema_" + str(ema_fast)] = df["close"].ewm(span=ema_fast, adjust=False).mean()
+        df["ema_" + str(ema_slow)] = df["close"].ewm(span=ema_slow, adjust=False).mean()
+        df["daily_return"] = df["close"].pct_change()
+        df["vol_" + str(vol_window)] = df["daily_return"].rolling(vol_window).std()
+        df["sma_200"] = calculate_ma(df["close"], 200)
+        df["adx_" + str(adx_period)] = calculate_adx(
+            df["high"], df["low"], df["close"], period=adx_period
+        )
+        macd_line, _, _ = calculate_macd(
+            df["close"], fast=macd_fast, slow=macd_slow, signal=macd_signal
+        )
+        df["macd_line"] = macd_line
     else:
         if df.empty or len(df) < 50:
             print("Insufficient data for signal.")

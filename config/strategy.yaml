@@ -36,3 +36,20 @@ strategies:
     risk_control:
       stop_loss_ratio: 0.05
       take_profit_ratio: 0.20
+
+  EMA_trend_v3:
+    index_code: "QQQ"
+    ema_fast: 80
+    ema_slow: 200
+    adx_period: 14
+    adx_threshold: 25
+    macd_fast: 12
+    macd_slow: 26
+    macd_signal: 9
+    vol_window: 20
+    vol_threshold: 0.02
+    use_vol_filter: false
+    vix_threshold: 25
+    risk_control:
+      stop_loss_ratio: 0.05
+      take_profit_ratio: 0.20

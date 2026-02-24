@@ -10,6 +10,10 @@ on:
 jobs:
   run-signal:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        strategy: [EMA_trend_v3, NDX_MA50_Volume_RSI]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,10 +27,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run signal and notify
+      - name: Run signal and notify (${{ matrix.strategy }})
         env:
           SYMBOL: ${{ secrets.SYMBOL || 'QQQ' }}
-          STRATEGY: ${{ secrets.STRATEGY || 'EMA_trend_v3' }}
+          STRATEGY: ${{ matrix.strategy }}
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECEIVERS: ${{ secrets.EMAIL_RECEIVERS }}

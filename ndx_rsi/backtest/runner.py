@@ -125,6 +125,14 @@ def run_backtest(
         loop_start = 200
         if len(df) < loop_start:
             return {"error": "insufficient_data", "win_rate": 0, "max_drawdown": 0}
+    elif strategy_name == "NDX_MA50_Volume_RSI":
+        df["ma50"] = calculate_ma(df["close"], 50)
+        df["ma20"] = calculate_ma20(df["close"])
+        df["rsi_14"] = calculate_rsi_handwrite(df["close"], 14)
+        df["volume_ratio"] = calculate_volume_ratio(df["volume"], 20)
+        loop_start = 60
+        if len(df) < loop_start:
+            return {"error": "insufficient_data", "win_rate": 0, "max_drawdown": 0}
     else:
         df["ma50"] = calculate_ma(df["close"], 50)
         df["ma5"] = calculate_ma5(df["close"])

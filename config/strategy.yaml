@@ -53,3 +53,14 @@ strategies:
     risk_control:
       stop_loss_ratio: 0.05
       take_profit_ratio: 0.20
+
+  NDX_MA50_Volume_RSI:
+    index_code: "QQQ"
+    rsi_period: 14
+    vol_ratio_heavy: 1.2
+    vol_ratio_light: 0.8
+    slope_flat_threshold: 0.1    # 震荡：连续5日斜率绝对值 < 0.1%（单位：百分比数值，0.1 即 0.1%）
+    oscillate_range: 0.03        # 震荡：收盘在 SMA50 ±3%
+    risk_control:
+      stop_loss_ratio: 0.05
+      take_profit_ratio: 0.20

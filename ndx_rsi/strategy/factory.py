@@ -7,6 +7,7 @@ from ndx_rsi.strategy.ema_cross import (
     EMATrendV3Strategy,
 )
 from ndx_rsi.strategy.ndx_short import NDXShortTermRSIStrategy
+from ndx_rsi.strategy.ndx_ma50_volume_rsi import NDXMA50VolumeRSIStrategy
 
 
 def create_strategy(strategy_name: str) -> BaseTradingStrategy:
@@ -22,6 +23,8 @@ def create_strategy(strategy_name: str) -> BaseTradingStrategy:
         return EMATrendV3Strategy(config)
     if strategy_name == "NDX_short_term":
         return NDXShortTermRSIStrategy(config)
+    if strategy_name == "NDX_MA50_Volume_RSI":
+        return NDXMA50VolumeRSIStrategy(config)
     # 预留：SPX_mid_term 等
     if config.get("period_type") == "short" or "NDX" in config.get("index_code", ""):
         return NDXShortTermRSIStrategy(config)

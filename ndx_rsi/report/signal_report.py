@@ -273,6 +273,34 @@ def _report_ndx_short_term(
     return "\n".join(lines)
 
 
+def _report_ndx_ma50_volume_rsi(
+    symbol: str, row: pd.Series, date_str: str, sig: Dict[str, Any], risk: Dict[str, Any], config: Optional[Dict]
+) -> str:
+    """NDX_MA50_Volume_RSI：趋势类型、RSI(14)、量能比、操作建议、止损止盈。"""
+    close = _get(row, "close")
+    ma50 = _get(row, "ma50")
+    trend_type = sig.get("trend_type") or "—"
+    rsi_14 = _get(row, "rsi_14")
+    vol_ratio = _get(row, "volume_ratio")
+    reason = (sig.get("reason") or "").strip()
+    operation = sig.get("operation") or sig.get("reason") or "观望"
+    derivation = f"{trend_type} | RSI(14)={rsi_14} 量能比={vol_ratio} → {reason}"
+
+    lines = [
+        "=" * 55,
+        f"【{symbol} NDX_MA50_Volume_RSI 信号 - {date_str}】",
+        f"  收盘价: {close}",
+        f"  SMA50: {ma50}",
+        f"  趋势类型: {trend_type}",
+        f"  RSI(14): {rsi_14}  量能比(20日均量): {vol_ratio}",
+        f"  推导逻辑: {derivation}",
+        f"  操作建议: {operation}",
+    ]
+    _build_common_tail(risk, lines)
+    lines.append("=" * 55)
+    return "\n".join(lines)
+
+
 def format_signal_report(
     strategy_name: str,
     symbol: str,
@@ -298,6 +326,8 @@ def format_signal_report(
         return _report_ema_trend_v3(symbol, row, date_str, sig, risk, strategy_config)
     if strategy_name == "NDX_short_term":
         return _report_ndx_short_term(symbol, row, date_str, sig, risk, strategy_config)
+    if strategy_name == "NDX_MA50_Volume_RSI":
+        return _report_ndx_ma50_volume_rsi(symbol, row, date_str, sig, risk, strategy_config)
     # 未知策略：通用简短报告
     action = _action_from_position(sig)
     lines = [

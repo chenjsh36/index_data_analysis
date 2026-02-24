@@ -98,6 +98,11 @@ def cmd_run_signal(args: argparse.Namespace) -> int:
         end = datetime.date.today()
         start = end - datetime.timedelta(days=400)
         df = ds.get_historical_data(start.isoformat(), end.isoformat(), "1d")
+    elif strategy_name == "NDX_MA50_Volume_RSI":
+        import datetime
+        end = datetime.date.today()
+        start = end - datetime.timedelta(days=120)
+        df = ds.get_historical_data(start.isoformat(), end.isoformat(), "1d")
     else:
         df = ds.get_realtime_data()
     df, _ = preprocess_ohlcv(df)
@@ -150,6 +155,15 @@ def cmd_run_signal(args: argparse.Namespace) -> int:
             df["close"], fast=macd_fast, slow=macd_slow, signal=macd_signal
         )
         df["macd_line"] = macd_line
+    elif strategy_name == "NDX_MA50_Volume_RSI":
+        min_bars = 60
+        if df.empty or len(df) < min_bars:
+            print(f"Insufficient data for signal (need at least {min_bars} bars).")
+            return 1
+        df["ma50"] = calculate_ma(df["close"], 50)
+        df["ma20"] = calculate_ma(df["close"], 20)
+        df["rsi_14"] = calculate_rsi_handwrite(df["close"], 14)
+        df["volume_ratio"] = calculate_volume_ratio(df["volume"], 20)
     else:
         if df.empty or len(df) < 50:
             print("Insufficient data for signal.")
